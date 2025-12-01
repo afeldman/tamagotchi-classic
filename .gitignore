@@ -1,0 +1,42 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# ESP-IDF
+.embuild/
+.pio/
+sdkconfig
+sdkconfig.old
+
+# Build artifacts
+*.bin
+*.elf
+*.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+target/doc/
+
+# Testing
+*.profraw
+*.gcda
+*.gcno
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# OS specific
+Thumbs.db

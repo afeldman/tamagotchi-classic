@@ -1,0 +1,12 @@
+[package]
+name = "tamagochi-core"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+# Platform-agnostic dependencies only
+serde = { workspace = true, optional = true }
+
+[features]
+default = []
+serialization = ["serde"]

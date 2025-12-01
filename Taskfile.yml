@@ -1,0 +1,315 @@
+version: "3"
+
+vars:
+  FIRMWARE_DIR: "{{.ROOT_DIR}}/firmware"
+  CORE_DIR: "{{.FIRMWARE_DIR}}/core"
+  DESKTOP_DIR: "{{.FIRMWARE_DIR}}/desktop"
+  ESP32_DIR: "{{.FIRMWARE_DIR}}/esp32"
+
+tasks:
+  # ============================================================================
+  # Main Tasks
+  # ============================================================================
+
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list-all
+
+  # ============================================================================
+  # Core Logic Tasks
+  # ============================================================================
+
+  core:test:
+    desc: "Run core logic unit tests"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - cargo test
+
+  core:build:
+    desc: "Build core library"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - cargo build
+
+  core:build:release:
+    desc: "Build core library (release)"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - cargo build --release
+
+  core:check:
+    desc: "Check core library for errors"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - cargo check
+
+  core:doc:
+    desc: "Generate documentation for core"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - cargo doc --no-deps --open
+
+  # ============================================================================
+  # Desktop Tasks
+  # ============================================================================
+
+  desktop:run:
+    desc: "Run desktop version (CLI with ASCII art)"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo run -p tamagochi-desktop
+
+  desktop:build:
+    desc: "Build desktop version"
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - cargo build
+
+  desktop:build:release:
+    desc: "Build desktop version (release)"
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - cargo build --release
+
+  desktop:check:
+    desc: "Check desktop code"
+    dir: "{{.DESKTOP_DIR}}"
+    cmds:
+      - cargo check
+
+  # ============================================================================
+  # ESP32 Tasks
+  # ============================================================================
+
+  esp32:setup:
+    desc: "Setup ESP32 development environment (one-time)"
+    cmds:
+      - |
+        echo "📦 Installing ESP32 toolchain..."
+        cargo install espup espflash ldproxy
+        espup install
+        echo ""
+        echo "✅ Setup complete!"
+        echo "⚠️  Run: source ~/export-esp.sh"
+
+  esp32:build:
+    desc: "Build ESP32 firmware"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo build
+    env:
+      ESP_IDF_VERSION: "v5.1"
+
+  esp32:build:release:
+    desc: "Build ESP32 firmware (release, optimized)"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo build --release
+    env:
+      ESP_IDF_VERSION: "v5.1"
+
+  esp32:flash:
+    desc: "Build and flash ESP32 (auto-detect port)"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo run --release
+    env:
+      ESP_IDF_VERSION: "v5.1"
+
+  esp32:flash:debug:
+    desc: "Build and flash ESP32 (debug version)"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo run
+    env:
+      ESP_IDF_VERSION: "v5.1"
+
+  esp32:monitor:
+    desc: "Monitor serial output from ESP32"
+    cmds:
+      - espflash monitor
+
+  esp32:clean:
+    desc: "Clean ESP32 build artifacts"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo clean
+
+  esp32:check:
+    desc: "Check ESP32 code (fast compile check)"
+    dir: "{{.ESP32_DIR}}"
+    cmds:
+      - cargo check
+    env:
+      ESP_IDF_VERSION: "v5.1"
+
+  # ============================================================================
+  # Workspace Tasks
+  # ============================================================================
+
+  build:all:
+    desc: "Build all targets (core, desktop, ESP32)"
+    cmds:
+      - task: core:build
+      - task: desktop:build
+      - task: esp32:build
+
+  clean:all:
+    desc: "Clean all build artifacts"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo clean
+
+  test:all:
+    desc: "Run all tests"
+    cmds:
+      - task: core:test
+      - echo "✅ All tests passed!"
+
+  check:all:
+    desc: "Check all code for errors"
+    cmds:
+      - task: core:check
+      - task: desktop:check
+      - task: esp32:check
+
+  fmt:
+    desc: "Format all Rust code"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo fmt --all
+
+  fmt:check:
+    desc: "Check code formatting"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo fmt --all -- --check
+
+  clippy:
+    desc: "Run clippy linter on all code"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo clippy --all-targets --all-features
+
+  # ============================================================================
+  # Development Workflow
+  # ============================================================================
+
+  dev:desktop:
+    desc: "Quick development cycle for desktop (check + run)"
+    cmds:
+      - task: desktop:check
+      - task: desktop:run
+
+  dev:esp32:
+    desc: "Quick development cycle for ESP32 (check + flash)"
+    cmds:
+      - task: esp32:check
+      - task: esp32:flash
+
+  dev:test:
+    desc: "Development test cycle (format + test + check)"
+    cmds:
+      - task: fmt
+      - task: test:all
+      - task: check:all
+
+  # ============================================================================
+  # Release Tasks
+  # ============================================================================
+
+  release:desktop:
+    desc: "Build desktop release binary"
+    cmds:
+      - task: desktop:build:release
+      - |
+        echo ""
+        echo "✅ Desktop binary ready:"
+        echo "   {{.FIRMWARE_DIR}}/target/release/tamagochi-cli"
+
+  release:esp32:
+    desc: "Build and flash ESP32 release firmware"
+    cmds:
+      - task: esp32:build:release
+      - |
+        echo ""
+        echo "✅ ESP32 firmware ready:"
+        echo "   {{.ESP32_DIR}}/target/xtensa-esp32-espidf/release/tamagochi-esp32"
+        echo ""
+        read -p "Flash to device? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+          task esp32:flash
+        fi
+
+  # ============================================================================
+  # Documentation
+  # ============================================================================
+
+  docs:
+    desc: "Generate and open documentation for all crates"
+    dir: "{{.FIRMWARE_DIR}}"
+    cmds:
+      - cargo doc --no-deps --open
+
+  docs:core:
+    desc: "Generate documentation for core only"
+    cmds:
+      - task: core:doc
+
+  # ============================================================================
+  # Git & Repository
+  # ============================================================================
+
+  git:commit:
+    desc: "Run checks before commit"
+    cmds:
+      - task: fmt
+      - task: clippy
+      - task: test:all
+      - echo "✅ Ready to commit!"
+
+  git:push:
+    desc: "Push to GitHub (classic subrepo)"
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      - git add .
+      - git status
+      - |
+        read -p "Commit message: " msg
+        git commit -m "$msg"
+      - git push origin main
+
+  # ============================================================================
+  # Help & Info
+  # ============================================================================
+
+  info:
+    desc: "Show project information"
+    cmds:
+      - |
+        echo "🐣 Tamagochi Classic v1.0.0"
+        echo "=========================="
+        echo ""
+        echo "📁 Project Structure:"
+        echo "   core/    - Platform-agnostic game logic"
+        echo "   desktop/ - CLI version for testing"
+        echo "   esp32/   - Hardware target (OLED + buttons)"
+        echo ""
+        echo "🚀 Quick Start:"
+        echo "   task desktop:run     # Test on computer"
+        echo "   task esp32:flash     # Flash to ESP32"
+        echo ""
+        echo "📖 Full task list:"
+        echo "   task --list-all"
+
+  version:
+    desc: "Show version information"
+    cmds:
+      - |
+        echo "Tamagochi Classic v1.0.0"
+        echo ""
+        rustc --version
+        cargo --version
+        task --version
